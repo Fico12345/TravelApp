@@ -46,7 +46,7 @@ export default Navigation = () =>  {
       </Drawer.Navigator>
     </NavigationContainer>
   );
-};
+}
 
 
 
