@@ -1,40 +1,56 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, ImageBackground } from "react-native";
 
 export default function Pocetna() {
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>Dobrodošli u Aplikaciju za Planiranje putovanja!</Text>
+        <ImageBackground
+            source={require("../assets/background.jpg")}
+            style={styles.background}
+            resizeMode="cover"
+        >
+            <View style={styles.overlay}>
+                <Text style={styles.title}>
+                    Dobrodošli u Aplikaciju za Planiranje Putovanja!
+                </Text>
 
-            {/* Pozdravna poruka */}
-            <Text style={styles.description}>
-                Ovdje možete upravljati rezervacijama, destinacijama i planirati svoje putovanje.
-            </Text>
-        </View>
+                <Text style={styles.description}>
+                    Ovdje možete upravljati rezervacijama, destinacijama i
+                    planirati svoje savršeno putovanje.
+                </Text>
+            </View>
+        </ImageBackground>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
+    background: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    overlay: {
         flex: 1,
         justifyContent: "center",
         alignItems: "center",
         padding: 20,
-        backgroundColor: "#f2f2f2",
+        backgroundColor: "rgba(0, 0, 0, 0.5)", // Tamni sloj za bolju čitljivost teksta
     },
     title: {
-        fontSize: 26,
+        fontSize: 28,
         fontWeight: "bold",
         textAlign: "center",
         marginBottom: 20,
-        color: "#333",
+        color: "#ffffff", // Bijeli tekst za kontrast
     },
     description: {
         fontSize: 18,
         textAlign: "center",
-        marginBottom: 30,
-        color: "#666",
+        color: "#dddddd", // Svijetlosivi tekst
+        lineHeight: 24,
     },
 });
+
+
+
 
 
