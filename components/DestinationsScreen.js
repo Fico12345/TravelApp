@@ -11,10 +11,11 @@ import {
   Image,
   ImageBackground,
 } from "react-native";
-import { launchImageLibrary } from "react-native-image-picker";
 import { supabase } from "../supabaseClient"; 
 import { firestore } from "../firebaseConfig"; 
 import { collection, addDoc, getDocs, updateDoc, doc, deleteDoc } from "firebase/firestore";
+import * as ImagePicker from 'expo-image-picker'; 
+import * as FileSystem from 'expo-file-system'; 
 import MapView, { Marker } from 'react-native-maps'; 
 
 export default function DestinationsScreen() {
@@ -27,25 +28,25 @@ export default function DestinationsScreen() {
   const [slika, setSlika] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Funkcija za dohvat destinacija iz Firestore
-  useEffect(() => {
-    const fetchDestinacije = async () => {
-      try {
-        const querySnapshot = await getDocs(collection(firestore, "destinations"));
-        const fetchedDestinacije = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setDestinacije(fetchedDestinacije);
-      } catch (error) {
-        console.error("Greška pri dohvaćanju destinacija:", error);
-      }
-    };
+  
+  const fetchDestinacije = async () => {
+    try {
+      const querySnapshot = await getDocs(collection(firestore, "destinations"));
+      const fetchedDestinacije = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setDestinacije(fetchedDestinacije);
+    } catch (error) {
+      console.error("Greška pri dohvaćanju destinacija:", error);
+    }
+  };
 
+  useEffect(() => {
     fetchDestinacije();
   }, []);
 
-  // Provjeri ispravnost unosa
+  
   const validateInput = () => {
     if (!naziv || !opis || !kategorija || !latitude || !longitude) {
       setErrorMsg("Molimo ispunite sva polja.");
@@ -58,49 +59,62 @@ export default function DestinationsScreen() {
     return true;
   };
 
-  // Funkcija za odabir i upload slike
+  
   const handleImageUpload = async () => {
     try {
-      const result = await launchImageLibrary({
-        mediaType: "photo",
-        quality: 0.8,
-      });
-
-      if (result.didCancel) {
-        console.log("Korisnik je otkazao odabir slike.");
+      
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  
+      if (!permissionResult.granted) {
+        setErrorMsg("Dozvola za pristup galeriji je odbijena!");
         return;
       }
-
-      const image = result.assets[0];
-      const fileName = image.fileName ? `${Date.now()}_${image.fileName}` : `${Date.now()}.jpg`;  
-      const fileUri = image.uri;
-
-      const response = await fetch(fileUri);
-      const blob = await response.blob();
-
+  
       
-      const { data, error } = await supabase.storage
-        .from('destinations') 
-        .upload(fileName, blob);
-
-      if (error) {
-        throw error;
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images, 
+        quality: 0.8, 
+      });
+  
+      if (!result.canceled) {
+        const fileUri = result.assets[0].uri;
+        const fileName = `${Date.now()}.jpg`;
+  
+        
+        const { data, error } = await supabase.storage
+          .from('destinations') 
+          .upload(fileName, {
+            uri: fileUri,
+            type: "image/jpeg",
+            name: fileName,
+          });
+  
+        if (error) {
+          throw error;
+        }
+  
+        
+        const { data: publicData } = supabase.storage
+          .from('destinations')
+          .getPublicUrl(fileName);
+  
+        if (publicData.publicUrl) {
+          setSlika(publicData.publicUrl);
+          console.log('URL slike:', publicData.publicUrl);
+        }
       }
-
-      const imageUrl = supabase.storage.from('destinations').getPublicUrl(fileName).publicURL;
-
-      setSlika(imageUrl); 
-      console.log('URL slike:', imageUrl);
-
     } catch (error) {
       console.error("Greška pri uploadu slike:", error);
       setErrorMsg("Došlo je do greške pri uploadu slike.");
     }
   };
 
-  
   const handleSaveDestination = async () => {
     if (!validateInput()) return;
+    if (!slika) {
+      setErrorMsg("Molimo odaberite sliku prije spremanja.");
+      return;
+    }
 
     try {
       await addDoc(collection(firestore, "destinations"), {
@@ -108,7 +122,7 @@ export default function DestinationsScreen() {
         description: opis,
         category: kategorija,
         location: { latitude: parseFloat(latitude), longitude: parseFloat(longitude) },
-        imageUrl: slika, // Spremi URL slike
+        imageUrl: slika, 
         createdAt: new Date(),
       });
 
@@ -121,15 +135,15 @@ export default function DestinationsScreen() {
       setSlika("");
       setErrorMsg("");
 
-      const fetchedDestinacije = await fetchDestinacije();
-      setDestinacije(fetchedDestinacije);
+      fetchDestinacije(); 
+
     } catch (error) {
       console.error("Greška pri spremanju odredišta:", error);
       Alert.alert("Nije moguće spremiti odredište.");
     }
   };
 
-  // Ažuriraj odredište
+  
   const handleUpdateDestination = async (id) => {
     if (!validateInput()) return;
 
@@ -139,7 +153,7 @@ export default function DestinationsScreen() {
         description: opis,
         category: kategorija,
         location: { latitude: parseFloat(latitude), longitude: parseFloat(longitude) },
-        imageUrl: slika, // Ažuriraj URL slike
+        imageUrl: slika, 
       };
 
       const destinationRef = doc(firestore, "destinations", id);
@@ -154,23 +168,22 @@ export default function DestinationsScreen() {
       setSlika("");
       setErrorMsg("");
 
-      const fetchedDestinacije = await fetchDestinacije();
-      setDestinacije(fetchedDestinacije);
+      fetchDestinacije(); 
+
     } catch (error) {
       console.error("Greška pri ažuriranju odredišta:", error);
       Alert.alert("Nije moguće ažurirati odredište.");
     }
   };
 
-  // Obriši odredište
+  
   const handleDeleteDestination = async (id) => {
     try {
       const destinationRef = doc(firestore, "destinations", id);
       await deleteDoc(destinationRef);
       Alert.alert("Odredište uspješno obrisano!");
 
-      const fetchedDestinacije = await fetchDestinacije();
-      setDestinacije(fetchedDestinacije);
+      fetchDestinacije(); 
     } catch (error) {
       console.error("Greška pri brisanju odredišta:", error);
       Alert.alert("Nije moguće obrisati odredište.");
@@ -188,7 +201,6 @@ export default function DestinationsScreen() {
         <Text>Nema slike</Text>
       )}
 
-      {}
       <MapView
         style={styles.map}
         initialRegion={{
@@ -315,45 +327,44 @@ const styles = StyleSheet.create({
     borderColor: "#ccc",
     borderWidth: 1,
     marginBottom: 10,
-    paddingLeft: 8,
+    paddingHorizontal: 10,
     borderRadius: 5,
-    backgroundColor: '#fff', 
+    backgroundColor: '#fff',
+  },
+  buttonText: {
+    color: "blue",
+    fontSize: 16,
+    marginBottom: 5,
   },
   destinationItem: {
+    backgroundColor: "white",
     padding: 15,
-    marginVertical: 10,
-    borderWidth: 1,
-    borderColor: "#ddd",
     borderRadius: 5,
+    marginBottom: 10,
   },
   destinationName: {
     fontSize: 18,
     fontWeight: "bold",
   },
   destinationImage: {
-    width: 100,
-    height: 100,
-    marginTop: 10,
+    width: 200,
+    height: 120,
+    marginBottom: 10,
+    borderRadius: 5,
   },
   map: {
+    width: 300,
     height: 200,
-    marginVertical: 10,
-    borderRadius: 10,
-  },
-  buttonText: {
-    color: "#007BFF",
-    textAlign: "center",
-    marginTop: 10,
+    marginBottom: 10,
   },
   previewImage: {
     width: 150,
     height: 150,
-    marginTop: 10,
     borderRadius: 10,
+    marginBottom: 10,
   },
   error: {
     color: "red",
-    textAlign: "center",
-    marginBottom: 20,
+    marginBottom: 10,
   },
 });

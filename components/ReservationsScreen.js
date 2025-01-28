@@ -10,11 +10,24 @@ import {
   StyleSheet,
   Keyboard,
   Platform,
+  ImageBackground,
+  ActivityIndicator,
 } from "react-native";
 import { collection, addDoc, getDocs } from "firebase/firestore";
 import { firestore } from "../firebaseConfig";
 import { getAuth } from "firebase/auth";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import Icon from "react-native-vector-icons/MaterialIcons";
+import * as Animatable from "react-native-animatable";
+
+
+const theme = {
+  primary: "#4CAF50",
+  secondary: "#FF5722",
+  background: "#F5F5F5",
+  text: "#212121",
+  error: "#F44336",
+};
 
 export default function ReservationsScreen() {
   const [reservations, setReservations] = useState([]);
@@ -24,10 +37,11 @@ export default function ReservationsScreen() {
   const [errorMsg, setErrorMsg] = useState("");
   const [showDestinations, setShowDestinations] = useState(false);
   const [destinations, setDestinations] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
 
-  // Dohvati sve destinacije iz Firestore
+  
   useEffect(() => {
     const fetchDestinations = async () => {
       try {
@@ -39,13 +53,15 @@ export default function ReservationsScreen() {
         setDestinations(fetchedDestinations);
       } catch (error) {
         console.error("Greška pri dohvaćanju destinacija: ", error);
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchDestinations();
   }, []);
 
-  // Provjeri ispravnost unosa
+  
   const validateInput = () => {
     if (!destination || !date || !type) {
       setErrorMsg("Molimo ispunite sva polja.");
@@ -54,7 +70,7 @@ export default function ReservationsScreen() {
     return true;
   };
 
-  // Dodaj novu rezervaciju
+  
   const handleSaveReservation = async () => {
     if (!validateInput()) return;
 
@@ -86,7 +102,7 @@ export default function ReservationsScreen() {
     }
   };
 
-  // Odabir datuma
+  
   const onDateChange = (event, dateValue) => {
     if (Platform.OS !== "web") {
       setShowDatePicker(false);
@@ -97,7 +113,7 @@ export default function ReservationsScreen() {
     }
   };
 
-  // Odabir destinacije
+  
   const handleSelectDestination = (destName) => {
     setDestination(destName);
     setShowDestinations(false);
@@ -109,96 +125,119 @@ export default function ReservationsScreen() {
       onPress={() => handleSelectDestination(item.name)}
       style={styles.destinationItem}
     >
-      <Text>{item.name}</Text>
+      <Text style={styles.destinationText}>{item.name}</Text>
     </TouchableOpacity>
   );
 
   return (
-    <TouchableOpacity
-      style={styles.container}
-      activeOpacity={1}
-      onPress={() => setShowDestinations(false)} // Zatvara popis destinacija
+    <ImageBackground
+      source={require("../assets/background.jpg")} 
+      style={styles.background}
     >
-      <Text style={styles.title}>Rezervacije</Text>
-
-      {errorMsg ? <Text style={styles.error}>{errorMsg}</Text> : null}
-
-      {/* Odabir destinacije */}
       <TouchableOpacity
-        style={styles.input}
-        onPress={() => setShowDestinations(!showDestinations)}
+        style={styles.container}
+        activeOpacity={1}
+        onPress={() => setShowDestinations(false)} 
       >
-        <Text style={{ color: destination ? "#000" : "#aaa" }}>
-          {destination || "Izaberite destinaciju"}
-        </Text>
-      </TouchableOpacity>
-      {showDestinations && (
-        <FlatList
-          data={destinations}
-          keyExtractor={(item) => item.id}
-          renderItem={renderDestinationItem}
-          style={styles.dropdown}
-        />
-      )}
+        <Text style={styles.title}>Rezervacije</Text>
 
-      {/* Odabir datuma */}
-      {Platform.OS === "web" ? (
-        <TextInput
-          style={styles.input}
-          placeholder="Unesite datum (DD.MM.YYYY)"
-          value={date}
-          onChangeText={setDate}
-        />
-      ) : (
+        {errorMsg ? <Text style={styles.error}>{errorMsg}</Text> : null}
+
+        {/* Odabir destinacije */}
         <TouchableOpacity
-          style={styles.input}
-          onPress={() => setShowDatePicker(true)}
+          style={[styles.input, { flexDirection: "row", alignItems: "center" }]}
+          onPress={() => setShowDestinations(!showDestinations)}
         >
-          <Text style={{ color: date ? "#000" : "#aaa" }}>
-            {date || "Izaberite datum"}
+          <Icon name="place" size={20} color={destination ? theme.primary : "#aaa"} />
+          <Text style={{ marginLeft: 10, color: destination ? theme.text : "#aaa" }}>
+            {destination || "Izaberite destinaciju"}
           </Text>
         </TouchableOpacity>
-      )}
-      {showDatePicker && Platform.OS !== "web" && (
-        <DateTimePicker
-          value={selectedDate}
-          mode="date"
-          display="default"
-          onChange={onDateChange}
-        />
-      )}
+        {showDestinations && (
+          <Animatable.View animation="fadeIn" duration={300}>
+            {loading ? (
+              <ActivityIndicator size="large" color={theme.primary} />
+            ) : (
+              <FlatList
+                data={destinations}
+                keyExtractor={(item) => item.id}
+                renderItem={renderDestinationItem}
+                style={styles.dropdown}
+              />
+            )}
+          </Animatable.View>
+        )}
 
-      {/* Tip rezervacije */}
-      <TextInput
-        style={styles.input}
-        placeholder="Tip rezervacije (npr. Hotel, Let, Auto)"
-        value={type}
-        onChangeText={setType}
-      />
-      <Button title="Spremi Rezervaciju" onPress={handleSaveReservation} />
-    </TouchableOpacity>
+        {/* Odabir datuma */}
+        {Platform.OS === "web" ? (
+          <TextInput
+            style={styles.input}
+            placeholder="Unesite datum (DD.MM.YYYY)"
+            value={date}
+            onChangeText={setDate}
+          />
+        ) : (
+          <TouchableOpacity
+            style={[styles.input, { flexDirection: "row", alignItems: "center" }]}
+            onPress={() => setShowDatePicker(true)}
+          >
+            <Icon name="event" size={20} color={date ? theme.primary : "#aaa"} />
+            <Text style={{ marginLeft: 10, color: date ? theme.text : "#aaa" }}>
+              {date || "Izaberite datum"}
+            </Text>
+          </TouchableOpacity>
+        )}
+        {showDatePicker && Platform.OS !== "web" && (
+          <DateTimePicker
+            value={selectedDate}
+            mode="date"
+            display="default"
+            onChange={onDateChange}
+          />
+        )}
+
+        {/* Tip rezervacije */}
+        <TextInput
+          style={styles.input}
+          placeholder="Tip rezervacije (npr. Hotel, Let, Auto)"
+          value={type}
+          onChangeText={setType}
+        />
+
+        {/* Gumb za spremanje */}
+        <TouchableOpacity style={styles.button} onPress={handleSaveReservation}>
+          <Text style={styles.buttonText}>Spremi Rezervaciju</Text>
+        </TouchableOpacity>
+      </TouchableOpacity>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  background: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     padding: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.8)", // Poluprozirna pozadina
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
     textAlign: "center",
     marginBottom: 20,
+    color: theme.primary,
   },
   input: {
     height: 40,
-    borderColor: "#ccc",
+    borderColor: theme.primary,
     borderWidth: 1,
     marginBottom: 10,
     paddingHorizontal: 10,
     justifyContent: "center",
     borderRadius: 5,
+    backgroundColor: "#fff",
   },
   dropdown: {
     maxHeight: 150,
@@ -213,10 +252,25 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#ddd",
   },
+  destinationText: {
+    color: theme.text,
+  },
   error: {
-    color: "red",
+    color: theme.error,
     marginBottom: 10,
     fontSize: 14,
     fontWeight: "bold",
+  },
+  button: {
+    backgroundColor: theme.primary,
+    padding: 15,
+    borderRadius: 8,
+    alignItems: "center",
+    marginVertical: 10,
+  },
+  buttonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 16,
   },
 });
